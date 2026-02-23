@@ -2,7 +2,6 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const axios = require("axios");
-const OpenAI = require("openai");
 require("dotenv").config();
 
 const routes = require("./routes");
@@ -17,41 +16,26 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 
-// IMPORTANT: Twilio sends x-www-form-urlencoded
+// Twilio sends x-www-form-urlencoded
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 // =======================
-// OpenAI Setup
-// =======================
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// =======================
-// WhatsApp Webhook
+// WhatsApp Webhook (Deterministic – No AI)
 // =======================
 app.post("/whatsapp", async (req, res) => {
   try {
-    const userMessage = req.body.Body;
+    const userMessage = req.body.Body?.toLowerCase();
 
     if (!userMessage) {
       return res.send(`<Response><Message>Empty message</Message></Response>`);
     }
 
-    // 1️⃣ Ask AI to understand intent
-    const ai = await openai.responses.create({
-      model: "gpt-4.1",
-      input: userMessage
-    });
-
-    const aiText = ai.output_text || "";
-
-    // 2️⃣ Example: basic availability trigger
-    if (aiText.toLowerCase().includes("availability")) {
+    // 🔹 Simple Intent Detection
+    if (userMessage.includes("availability") || userMessage.includes("متاح")) {
 
       const availabilityResponse = await axios.post(
-        `http://localhost:${process.env.PORT || 3000}/api/availability`,
+        `http://127.0.0.1:${process.env.PORT || 3000}/api/availability`,
         {
           service_id: 1,
           date: "2026-02-24"
@@ -80,10 +64,10 @@ app.post("/whatsapp", async (req, res) => {
       `);
     }
 
-    // Default AI reply
+    // Default fallback
     return res.send(`
       <Response>
-        <Message>${aiText}</Message>
+        <Message>يرجى كتابة كلمة "availability" لمعرفة المواعيد المتاحة.</Message>
       </Response>
     `);
 
